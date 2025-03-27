@@ -2,6 +2,7 @@ import React, { useRef, useEffect, Dispatch, SetStateAction } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import styles from '../styles/BillSplitter.module.css';
 
 interface DragItem {
     type: string;
@@ -14,6 +15,11 @@ interface ReceiptItem {
     price: number;
     quantity: number;
     participants: string[];
+}
+
+interface Participant {
+    id: string;
+    name: string;
 }
 
 const ParticipantCard: React.FC<{ id: string; name: string }> = ({ id, name }) => {
@@ -57,33 +63,40 @@ const ItemCard: React.FC<{
     onRemoveParticipant: (itemId: string, participantId: string) => void;
     getParticipantName: (id: string) => string;
     allParticipants: Array<{ id: string; name: string }>;
-}> = ({ id, name, price, participants, onAddParticipant, onRemoveParticipant, getParticipantName, allParticipants }) => {
-    const [{ isOver }, drop] = useDrop<DragItem, void, { isOver: boolean }>(() => ({
+    currency: string;
+}> = ({ id, name, price, participants, onAddParticipant, onRemoveParticipant, getParticipantName, allParticipants, currency }) => {
+    const elementRef = useRef<HTMLDivElement>(null);
+    const [{ isOver }, drop] = useDrop(() => ({
         accept: 'participant',
-        drop: (item: DragItem) => {
-            onAddParticipant(id, item.id);
-            return undefined;
+        drop: (item: { id: string }) => {
+            if (!participants.includes(item.id)) {
+                onAddParticipant(id, item.id);
+            }
         },
-        collect: monitor => ({
+        collect: (monitor) => ({
             isOver: monitor.isOver()
         })
     }));
 
-    const elementRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        drop(elementRef.current);
-    }, [drop]);
+    // Combine the refs
+    const dropRef = (node: HTMLDivElement | null) => {
+        elementRef.current = node;
+        drop(node);
+    };
 
-    // Handle manual participant addition
     const handleManualAdd = (participantId: string) => {
-        if (participantId) {
+        if (participantId && !participants.includes(participantId)) {
             onAddParticipant(id, participantId);
         }
     };
 
+    const formatAmount = (amount: number): string => {
+        return `${currency}${amount.toFixed(2)}`;
+    };
+
     return (
         <div
-            ref={elementRef}
+            ref={dropRef}
             style={{
                 padding: '15px',
                 margin: '10px 0',
@@ -95,7 +108,7 @@ const ItemCard: React.FC<{
         >
             <div style={{ marginBottom: '10px' }}>
                 <strong>{name}</strong>
-                <span style={{ float: 'right' }}>${price.toFixed(2)}</span>
+                <span style={{ float: 'right' }}>{formatAmount(price)}</span>
             </div>
             <div style={{ marginTop: '10px' }}>
                 <div style={{ 
@@ -125,7 +138,15 @@ const ItemCard: React.FC<{
                         }
                     </select>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginTop: '5px' }}>
+                <div ref={dropRef} style={{ 
+                    minHeight: '30px',
+                    padding: '5px',
+                    backgroundColor: isOver ? '#e3f2fd' : '#f8f9fa',
+                    borderRadius: '4px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '5px'
+                }}>
                     {participants.length > 0 ? (
                         participants.map(participantId => (
                             <span
@@ -168,7 +189,7 @@ const ItemCard: React.FC<{
                         fontSize: '0.9em', 
                         color: '#666' 
                     }}>
-                        Split amount: ${(price / participants.length).toFixed(2)} each
+                        Split amount: {formatAmount(price / participants.length)} each
                     </div>
                 )}
             </div>
@@ -177,7 +198,7 @@ const ItemCard: React.FC<{
 };
 
 const BillSplitter: React.FC = () => {
-    const { setStep, participants, receiptItems, setReceiptItems } = useAppContext();
+    const { setStep, participants, receiptItems, setReceiptItems, currency } = useAppContext();
 
     const handleAddParticipant = (itemId: string, participantId: string) => {
         (setReceiptItems as Dispatch<SetStateAction<ReceiptItem[]>>)((prevItems: ReceiptItem[]) => 
@@ -261,6 +282,7 @@ const BillSplitter: React.FC = () => {
                                     onRemoveParticipant={handleRemoveParticipant}
                                     getParticipantName={getParticipantName}
                                     allParticipants={participants}
+                                    currency={currency}
                                 />
                             ))}
                         </div>

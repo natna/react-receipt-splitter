@@ -38,36 +38,52 @@
     margin: 0 auto;
 }
 
-.uploadArea {
+.currencySection {
     width: 100%;
     max-width: 300px;
-    aspect-ratio: 3/4;
-    border: 2px dashed #2196f3;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: rgba(33, 150, 243, 0.05);
-    transition: all 0.2s ease;
-    cursor: pointer;
     margin-bottom: 16px;
+}
+
+.uploadArea {
+    border: 2px dashed #ccc;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+    background-color: #f8f9fa;
 }
 
 .uploadArea:hover {
-    background-color: rgba(33, 150, 243, 0.1);
-    border-color: #1976d2;
+    border-color: #4a90e2;
+    background-color: #f0f7ff;
+}
+
+.uploadArea:active {
+    border-color: #357abd;
+    background-color: #e3f0ff;
 }
 
 .uploadIcon {
-    stroke: #2196f3;
+    color: #666;
     margin-bottom: 16px;
+    transition: color 0.3s ease;
+}
+
+.uploadArea:hover .uploadIcon {
+    color: #4a90e2;
 }
 
 .uploadText {
-    color: #666666;
-    font-size: 0.9rem;
-    text-align: center;
+    margin: 0;
+    color: #666;
+    font-size: 1rem;
+    transition: color 0.3s ease;
+}
+
+.uploadArea:hover .uploadText {
+    color: #4a90e2;
 }
 
 .actionButtons {

@@ -1,7 +1,8 @@
-import React, { ChangeEvent, useRef, useState } from 'react';
+import React, { ChangeEvent, useRef, useState, DragEvent } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { createWorker } from 'tesseract.js';
 import styles from '../styles/ReceiptInput.module.css';
+import { correctPerspective } from '../utils/imageProcessing';
 
 const ReceiptInput: React.FC = () => {
     const { setStep, setReceiptImage, setReceiptItems } = useAppContext();
@@ -11,19 +12,70 @@ const ReceiptInput: React.FC = () => {
     const [progress, setProgress] = useState(0);
     const [showCamera, setShowCamera] = useState(false);
 
+    const optimizeImage = (imageData: string): Promise<string> => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Calculate new dimensions while maintaining aspect ratio
+                const MAX_WIDTH = 1200;  // Maximum width for OCR
+                const MAX_HEIGHT = 1600; // Maximum height for OCR
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height = Math.round((height * MAX_WIDTH) / width);
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width = Math.round((width * MAX_HEIGHT) / height);
+                        height = MAX_HEIGHT;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                // Draw and optimize the image
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                // Convert to JPEG with quality 0.8 (good balance between quality and size)
+                const optimizedImageData = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(optimizedImageData);
+            };
+            img.src = imageData;
+        });
+    };
+
     const processReceipt = async (imageData: string) => {
         setIsProcessing(true);
         setProgress(0);
 
         try {
+            // Correct perspective before optimization
+            console.log('Correcting perspective...');
+            setProgress(5);
+            const perspectiveCorrected = await correctPerspective(imageData);
+            setProgress(10);
+
+            // Optimize image before processing
+            console.log('Optimizing image...');
+            setProgress(15);
+            const optimizedImage = await optimizeImage(perspectiveCorrected);
+            setProgress(25);
+
             // Create worker
             const worker = await createWorker();
-            setProgress(30);
+            setProgress(35);
             
             // Perform OCR
             console.log('Starting OCR...');
             setProgress(60);
-            const result = await worker.recognize(imageData);
+            const result = await worker.recognize(optimizedImage);
             const text = result.data.text;
             console.log('Extracted Text:', text);
             setProgress(80);
@@ -114,14 +166,45 @@ const ReceiptInput: React.FC = () => {
 
     const startCamera = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // First check if the device has a camera
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const hasCamera = devices.some(device => device.kind === 'videoinput');
+            
+            if (!hasCamera) {
+                alert('No camera found on your device. Please use the file upload option instead.');
+                return;
+            }
+
+            // Request camera permissions
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                video: {
+                    facingMode: 'environment', // Prefer back camera on mobile devices
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                } 
+            });
+            
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
             setShowCamera(true);
         } catch (error) {
             console.error('Error accessing camera:', error);
-            alert('Error accessing camera. Please make sure you have granted camera permissions.');
+            let errorMessage = 'Error accessing camera. ';
+            
+            if (error instanceof Error) {
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMessage += 'Please allow camera access in your browser settings and try again.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMessage += 'No camera found on your device. Please use the file upload option instead.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMessage += 'Your camera is in use by another application. Please close other apps using the camera and try again.';
+                } else {
+                    errorMessage += 'Please try again or use the file upload option instead.';
+                }
+            }
+            
+            alert(errorMessage);
         }
     };
 
@@ -144,6 +227,45 @@ const ReceiptInput: React.FC = () => {
             setReceiptImage(imageData);
             stopCamera();
             processReceipt(imageData);
+        }
+    };
+
+    const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            
+            // Add file validation
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file');
+                return;
+            }
+
+            // Check file size (limit to 10MB)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('File is too large. Please upload an image smaller than 10MB');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const imageData = e.target?.result as string;
+                setReceiptImage(imageData);
+                processReceipt(imageData);
+            };
+            reader.onerror = (e) => {
+                console.error('File reading error:', e);
+                alert('Error reading file. Please try again.');
+            };
+            reader.readAsDataURL(file);
         }
     };
 
@@ -183,7 +305,12 @@ const ReceiptInput: React.FC = () => {
                         </div>
                     ) : (
                         <>
-                            <div className={styles.uploadArea}>
+                            <div 
+                                className={styles.uploadArea}
+                                onClick={() => fileInputRef.current?.click()}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                            >
                                 <input
                                     ref={fileInputRef}
                                     type="file"

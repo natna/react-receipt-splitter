@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
+import CurrencySelector from './CurrencySelector';
+import EditIcon from './EditIcon';
+import styles from '../styles/ItemCorrection.module.css';
 
 interface Item {
     id: string;
@@ -10,10 +13,39 @@ interface Item {
 }
 
 const ItemCorrection: React.FC = () => {
-    const { setStep, receiptImage, receiptItems, setReceiptItems } = useAppContext();
+    const { setStep, receiptImage, receiptItems, setReceiptItems, currency } = useAppContext();
     const [newItem, setNewItem] = useState({ name: '', price: '', quantity: '1' });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editValue, setEditValue] = useState<string>('');
+    const [editingQuantityId, setEditingQuantityId] = useState<string | null>(null);
+    const [editQuantityValue, setEditQuantityValue] = useState<string>('');
+    const [taxAmount, setTaxAmount] = useState<string>('');
+    const [tipPercentage, setTipPercentage] = useState<string>('');
+
+    const formatAmount = (amount: number): string => {
+        return `${currency}${amount.toFixed(2)}`;
+    };
+
+    const calculateSubtotal = () => {
+        return receiptItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    };
+
+    const calculateTax = () => {
+        return parseFloat(taxAmount) || 0;
+    };
+
+    const calculateTip = () => {
+        const subtotal = calculateSubtotal();
+        const tip = parseFloat(tipPercentage) || 0;
+        return (subtotal * tip) / 100;
+    };
+
+    const calculateTotal = () => {
+        const subtotal = calculateSubtotal();
+        const tax = calculateTax();
+        const tip = calculateTip();
+        return subtotal + tax + tip;
+    };
 
     const handleAddItem = () => {
         if (newItem.name && newItem.price) {
@@ -44,6 +76,11 @@ const ItemCorrection: React.FC = () => {
         setEditValue(item.price.toFixed(2));
     };
 
+    const startEditingQuantity = (item: Item) => {
+        setEditingQuantityId(item.id);
+        setEditQuantityValue(item.quantity.toString());
+    };
+
     const handlePriceChange = (id: string, newPrice: string) => {
         const price = parseFloat(newPrice);
         if (!isNaN(price)) {
@@ -54,143 +91,219 @@ const ItemCorrection: React.FC = () => {
         setEditingId(null);
     };
 
-    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, id: string) => {
+    const handleQuantityChange = (id: string, newQuantity: string) => {
+        const quantity = parseInt(newQuantity);
+        if (!isNaN(quantity) && quantity > 0) {
+            setReceiptItems(receiptItems.map(item => 
+                item.id === id ? { ...item, quantity } : item
+            ));
+        }
+        setEditingQuantityId(null);
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>, id: string, type: 'price' | 'quantity') => {
         if (e.key === 'Enter') {
-            handlePriceChange(id, editValue);
+            if (type === 'price') {
+                handlePriceChange(id, editValue);
+            } else {
+                handleQuantityChange(id, editQuantityValue);
+            }
         } else if (e.key === 'Escape') {
-            setEditingId(null);
+            if (type === 'price') {
+                setEditingId(null);
+            } else {
+                setEditingQuantityId(null);
+            }
         }
     };
 
     return (
-        <div style={{ display: 'flex', gap: '20px' }}>
-            {receiptImage && (
-                <div style={{ flex: 1 }}>
-                    <h3>Receipt Image</h3>
-                    <img 
-                        src={receiptImage} 
-                        alt="Receipt" 
-                        style={{ 
-                            maxWidth: '100%', 
-                            height: 'auto',
-                            borderRadius: '4px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                        }} 
-                    />
+        <div className={styles.container}>
+            <div className={styles.header}>
+                <h2>Review and Correct Items</h2>
+                <CurrencySelector />
+            </div>
+
+            <div className={styles.content}>
+                <div className={styles.receiptColumn}>
+                    {receiptImage && (
+                        <div className={styles.receiptPreview}>
+                            <img src={receiptImage} alt="Receipt" />
+                        </div>
+                    )}
                 </div>
-            )}
-            <div style={{ flex: 1 }}>
-                <h3>Items</h3>
-                <div style={{ marginBottom: '20px' }}>
-                    {receiptItems.map(item => (
-                        <div key={item.id} style={{ 
-                            display: 'flex', 
-                            gap: '10px', 
-                            alignItems: 'center',
-                            marginBottom: '10px',
-                            padding: '10px',
-                            backgroundColor: '#f5f5f5',
-                            borderRadius: '4px'
-                        }}>
-                            <span style={{ flex: 2 }}>{item.name}</span>
-                            {editingId === item.id ? (
+
+                <div className={styles.itemsColumn}>
+                    <div className={styles.itemsList}>
+                        {receiptItems.map(item => (
+                            <div key={item.id} className={styles.itemCard}>
+                                <div className={styles.itemHeader}>
+                                    <h3>{item.name}</h3>
+                                    <div className={styles.itemActions}>
+                                        {editingId === item.id ? (
+                                            <input
+                                                type="number"
+                                                value={editValue}
+                                                onChange={(e) => setEditValue(e.target.value)}
+                                                onKeyDown={(e) => handleKeyPress(e, item.id, 'price')}
+                                                className={styles.priceInput}
+                                                step="0.01"
+                                                min="0"
+                                            />
+                                        ) : (
+                                            <span className={styles.price}>
+                                                {formatAmount(item.price)}
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => startEditing(item)}
+                                            className={styles.iconButton}
+                                            title="Edit Price"
+                                        >
+                                            <EditIcon />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteItem(item.id)}
+                                            className={styles.iconButton}
+                                            title="Delete Item"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className={styles.itemDetails}>
+                                    <div className={styles.quantitySection}>
+                                        <span>Quantity:</span>
+                                        {editingQuantityId === item.id ? (
+                                            <input
+                                                type="number"
+                                                value={editQuantityValue}
+                                                onChange={(e) => setEditQuantityValue(e.target.value)}
+                                                onKeyDown={(e) => handleKeyPress(e, item.id, 'quantity')}
+                                                className={styles.quantityInput}
+                                                min="1"
+                                            />
+                                        ) : (
+                                            <span className={styles.quantity}>
+                                                {item.quantity}
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => startEditingQuantity(item)}
+                                            className={styles.iconButton}
+                                            title="Edit Quantity"
+                                        >
+                                            <EditIcon />
+                                        </button>
+                                    </div>
+                                    <div className={styles.itemTotal}>
+                                        Total: {formatAmount(item.price * item.quantity)}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className={styles.totalSection}>
+                        <h3>Bill Summary</h3>
+                        <div className={styles.summaryDetails}>
+                            <div className={styles.summaryRow}>
+                                <span>Subtotal:</span>
+                                <span>{formatAmount(calculateSubtotal())}</span>
+                            </div>
+                            <div className={styles.summaryRow}>
+                                <span>Tax:</span>
+                                <span>{formatAmount(calculateTax())}</span>
+                            </div>
+                            <div className={styles.summaryRow}>
+                                <span>Tip ({tipPercentage || '0'}%):</span>
+                                <span>{formatAmount(calculateTip())}</span>
+                            </div>
+                            <div className={styles.summaryRowTotal}>
+                                <span>Total Amount:</span>
+                                <span>{formatAmount(calculateTotal())}</span>
+                            </div>
+                        </div>
+                        <div className={styles.taxTipInputs}>
+                            <div className={styles.inputGroup}>
+                                <label htmlFor="tax">Tax Percentage:</label>
                                 <input
+                                    id="tax"
                                     type="number"
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onBlur={() => handlePriceChange(item.id, editValue)}
-                                    onKeyDown={(e) => handleKeyPress(e, item.id)}
-                                    autoFocus
-                                    style={{
-                                        flex: 1,
-                                        padding: '4px',
-                                        width: '80px',
-                                        border: '1px solid #4a90e2',
-                                        borderRadius: '4px'
-                                    }}
-                                    step="0.01"
+                                    value={taxAmount}
+                                    onChange={(e) => setTaxAmount(e.target.value)}
+                                    className={styles.input}
                                     min="0"
+                                    max="100"
+                                    step="0.1"
+                                    placeholder="Enter tax %"
                                 />
-                            ) : (
-                                <span 
-                                    style={{ 
-                                        flex: 1, 
-                                        cursor: 'pointer',
-                                        padding: '4px',
-                                        borderRadius: '4px',
-                                        backgroundColor: '#fff',
-                                        border: '1px solid transparent'
-                                    }}
-                                    onClick={() => startEditing(item)}
-                                    title="Click to edit price"
-                                >
-                                    ${item.price.toFixed(2)}
-                                </span>
-                            )}
-                            <span style={{ flex: 1 }}>x{item.quantity}</span>
-                            <button 
-                                onClick={() => handleDeleteItem(item.id)}
-                                style={{
-                                    padding: '4px 8px',
-                                    backgroundColor: '#ff4444',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer'
-                                }}
+                            </div>
+                            <div className={styles.inputGroup}>
+                                <label htmlFor="tip">Tip Percentage:</label>
+                                <input
+                                    id="tip"
+                                    type="number"
+                                    value={tipPercentage}
+                                    onChange={(e) => setTipPercentage(e.target.value)}
+                                    className={styles.input}
+                                    min="0"
+                                    max="100"
+                                    step="0.1"
+                                    placeholder="Enter tip %"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className={styles.addItem}>
+                        <h3>Add New Item</h3>
+                        <div className={styles.addItemForm}>
+                            <input
+                                type="text"
+                                value={newItem.name}
+                                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                                placeholder="Item name"
+                                className={styles.input}
+                            />
+                            <input
+                                type="number"
+                                value={newItem.price}
+                                onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
+                                placeholder="Price"
+                                className={styles.input}
+                                step="0.01"
+                                min="0"
+                            />
+                            <input
+                                type="number"
+                                value={newItem.quantity}
+                                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                                placeholder="Quantity"
+                                className={styles.input}
+                                min="1"
+                            />
+                            <button
+                                onClick={handleAddItem}
+                                className={styles.addButton}
                             >
-                                Delete
+                                Add Item
                             </button>
                         </div>
-                    ))}
+                    </div>
                 </div>
-                <div style={{ marginBottom: '20px' }}>
-                    <input
-                        type="text"
-                        placeholder="Item name"
-                        value={newItem.name}
-                        onChange={e => setNewItem({ ...newItem, name: e.target.value })}
-                        style={{ marginRight: '10px', padding: '5px' }}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Price"
-                        value={newItem.price}
-                        onChange={e => setNewItem({ ...newItem, price: e.target.value })}
-                        style={{ marginRight: '10px', padding: '5px', width: '80px' }}
-                    />
-                    <input
-                        type="number"
-                        placeholder="Quantity"
-                        value={newItem.quantity}
-                        onChange={e => setNewItem({ ...newItem, quantity: e.target.value })}
-                        style={{ marginRight: '10px', padding: '5px', width: '60px' }}
-                    />
-                    <button 
-                        onClick={handleAddItem}
-                        style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#4CAF50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        Add Item
-                    </button>
-                </div>
-                <button 
+            </div>
+
+            <div className={styles.actions}>
+                <button
+                    onClick={() => setStep('input')}
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                >
+                    Back
+                </button>
+                <button
                     onClick={handleNext}
-                    style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#4a90e2',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        marginTop: '20px'
-                    }}
+                    className={`${styles.button} ${styles.buttonPrimary}`}
                 >
                     Next
                 </button>

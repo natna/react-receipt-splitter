@@ -25,6 +25,8 @@ interface AppContextType {
     setReceiptItems: (items: ReceiptItem[]) => void;
     participants: Participant[];
     setParticipants: (participants: Participant[]) => void;
+    currency: string;
+    setCurrency: (currency: string) => void;
     resetState: () => void;
 }
 
@@ -39,12 +41,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     const [receiptImage, setReceiptImage] = useState<string | null>(null);
     const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([]);
     const [participants, setParticipants] = useState<Participant[]>([]);
+    const [currency, setCurrency] = useState<string>('$');
 
     const resetState = () => {
         setStep('input');
         setReceiptImage(null);
         setReceiptItems([]);
         setParticipants([]);
+        setCurrency('$');
     };
 
     const value = {
@@ -56,6 +60,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         setReceiptItems,
         participants,
         setParticipants,
+        currency,
+        setCurrency,
         resetState
     };
 
