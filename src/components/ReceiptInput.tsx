@@ -6,8 +6,10 @@ import styles from '../styles/ReceiptInput.module.css';
 const ReceiptInput: React.FC = () => {
     const { setStep, setReceiptImage, setReceiptItems } = useAppContext();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [showCamera, setShowCamera] = useState(false);
 
     const processReceipt = async (imageData: string) => {
         setIsProcessing(true);
@@ -29,7 +31,7 @@ const ReceiptInput: React.FC = () => {
             // Process the OCR text to extract items
             const lines = text.split('\n');
             const items = [];
-            const priceRegex = /\$?\d+\.\d{2}/; // Matches price format like $12.34 or 12.34
+            const priceRegex = /\$?\d+\.\d{2}/;
 
             for (let line of lines) {
                 const priceMatch = line.match(priceRegex);
@@ -110,6 +112,41 @@ const ReceiptInput: React.FC = () => {
         }
     };
 
+    const startCamera = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+            setShowCamera(true);
+        } catch (error) {
+            console.error('Error accessing camera:', error);
+            alert('Error accessing camera. Please make sure you have granted camera permissions.');
+        }
+    };
+
+    const stopCamera = () => {
+        if (videoRef.current?.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setShowCamera(false);
+    };
+
+    const captureImage = () => {
+        if (videoRef.current) {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            canvas.getContext('2d')?.drawImage(videoRef.current, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg');
+            setReceiptImage(imageData);
+            stopCamera();
+            processReceipt(imageData);
+        }
+    };
+
     return (
         <div className={styles.container}>
             <div className={styles.card}>
@@ -121,35 +158,74 @@ const ReceiptInput: React.FC = () => {
                         </p>
                     </div>
 
-                    <div 
-                        className={styles.uploadArea}
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            style={{ display: 'none' }}
-                        />
-                        <svg
-                            width="48"
-                            height="48"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            className={styles.uploadIcon}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        <p className={styles.uploadText}>
-                            {isProcessing ? 'Processing...' : 'Click to upload receipt'}
-                        </p>
-                    </div>
+                    {showCamera ? (
+                        <div className={styles.cameraContainer}>
+                            <video
+                                ref={videoRef}
+                                autoPlay
+                                playsInline
+                                className={styles.cameraPreview}
+                            />
+                            <div className={styles.cameraControls}>
+                                <button
+                                    onClick={stopCamera}
+                                    className={`${styles.button} ${styles.buttonSecondary}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={captureImage}
+                                    className={`${styles.button} ${styles.buttonPrimary}`}
+                                >
+                                    Capture
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className={styles.uploadArea}>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                />
+                                <svg
+                                    width="48"
+                                    height="48"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    className={styles.uploadIcon}
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <p className={styles.uploadText}>
+                                    Click or drag a receipt to upload
+                                </p>
+                            </div>
+                            <div className={styles.actionButtons}>
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className={`${styles.button} ${styles.buttonPrimary}`}
+                                >
+                                    Choose File
+                                </button>
+                                <button
+                                    onClick={startCamera}
+                                    className={`${styles.button} ${styles.buttonSecondary}`}
+                                >
+                                    Take Photo
+                                </button>
+                            </div>
+                        </>
+                    )}
 
                     {isProcessing && (
                         <div className={styles.progressContainer}>

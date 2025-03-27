@@ -42,30 +42,96 @@
     width: 100%;
     max-width: 300px;
     aspect-ratio: 3/4;
-    border: 2px dashed #e0e0e0;
+    border: 2px dashed #2196f3;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    background-color: #f5f7fa;
+    background-color: rgba(33, 150, 243, 0.05);
     transition: all 0.2s ease;
+    cursor: pointer;
+    margin-bottom: 16px;
 }
 
 .uploadArea:hover {
-    border-color: #2196f3;
     background-color: rgba(33, 150, 243, 0.1);
+    border-color: #1976d2;
 }
 
 .uploadIcon {
     stroke: #2196f3;
+    margin-bottom: 16px;
 }
 
 .uploadText {
     color: #666666;
-    margin-top: 16px;
     font-size: 0.9rem;
+    text-align: center;
+}
+
+.actionButtons {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 300px;
+}
+
+.button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+}
+
+.buttonPrimary {
+    background-color: #2196f3;
+    color: white;
+}
+
+.buttonPrimary:hover {
+    background-color: #1976d2;
+}
+
+.buttonSecondary {
+    background-color: #f5f5f5;
+    color: #666666;
+    border: 1px solid #e0e0e0;
+}
+
+.buttonSecondary:hover {
+    background-color: #e0e0e0;
+}
+
+.cameraContainer {
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 3/4;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    border: 2px solid #2196f3;
+}
+
+.cameraPreview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cameraControls {
+    position: absolute;
+    bottom: 20px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding: 0 20px;
 }
 
 .progressContainer {
@@ -113,5 +179,14 @@
 
     .title {
         font-size: 1.25rem;
+    }
+
+    .button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+
+    .actionButtons {
+        flex-direction: column;
     }
 } 
